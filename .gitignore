@@ -1,0 +1,4 @@
+/squashnfsd
+
+*.squashfs
+squashfs-root/

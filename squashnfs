@@ -1,0 +1,32 @@
+#!/bin/sh
+# squashnfs: mount/unmount squashfs using nfs server
+offset=0
+unmount=false
+while getopts 'o:u' opt; do
+	case $opt in
+		o)	offset=$OPTARG;;
+		u)	unmount=true;;
+		*)	exit 1
+	esac
+done
+shift "$((OPTIND - 1))"
+pidfile=${TMPDIR:-/tmp}/squashnfs.pid
+touch "$pidfile"
+if $unmount; then
+	mountpoint=$1
+	test -d "$mountpoint" || exit 1
+	grep "$mountpoint$" "$pidfile" >/dev/null || exit 1
+	squashnfsd -u "" "$mountpoint"
+	pid=$(grep "$mountpoint$" "$pidfile" | cut -f1)
+	kill "$pid"
+	sed -e "\|$mountpoint|d" "$pidfile" >"$pidfile".$$ \
+	&& mv "$pidfile".$$ "$pidfile"
+else
+	archive=$1
+	mountpoint=$2
+	test -f "$archive" || exit 1
+	test -d "$mountpoint" || exit 1
+	grep "$mountpoint$" "$pidfile" >/dev/null && exit 1
+	squashnfsd -q "$archive" "$mountpoint" -o "$offset" &
+	printf "%d\t%s\n" $! "$mountpoint" >> "$pidfile"
+fi
